@@ -3,7 +3,7 @@ import json
 import time
 import random
 import logging
-from typing import List, Dict
+from typing import Any, List, Dict
 import boto3
 import pandas as pd
 import base64
@@ -20,7 +20,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-MAX_RECORDS_PER_BATCH = 10
+MAX_RECORDS_PER_BATCH = 500
 REGION_NAME = "us-east-1"
 
 
@@ -75,7 +75,7 @@ def send_batch_to_kinesis(kinesis_client, batch: List[Dict], stream_name: str) -
         # Retry failed records once
         if failed_count > 0:
             failed_records = []
-            for record, result in zip(batch, response["Records"]):
+            for record, result in zip[tuple[Dict, Any]](batch, response["Records"]):
                 if "ErrorCode" in result:
                     failed_records.append(record)
 
@@ -110,19 +110,15 @@ def main():
 
     logger.info("Loading trip end parquet")
     end_df = pd.read_parquet("data/end_taxi_trips.parquet")
-    print(end_df['trip_id'].to_list()[:15])
 
     start_records = df_to_kinesis_records(start_df)
     end_records = df_to_kinesis_records(end_df)
-    print(end_records[0:1])
 
-    
     logger.info("Initializing Kinesis client...")
     kinesis_client = boto3.client("kinesis", region_name=REGION_NAME)
     kinesis_start_trip_stream = 'start-trip-stream'
     kinesis_end_trip_stream = 'end-trip-stream'
     
-
     count_batch = 0
     idx_batch = 0
     # Stream events
@@ -137,7 +133,6 @@ def main():
 
         logger.info(f"Sending end trip batch...")
         end_batch = end_records[idx_batch:idx_batch + MAX_RECORDS_PER_BATCH]
-
         sent_end_trip_count = send_batch_to_kinesis(kinesis_client, end_batch, kinesis_end_trip_stream)
         logger.info(f"Sent {sent_end_trip_count} end strips in this batch.| {datetime.utcnow().isoformat()}")
 
@@ -148,7 +143,6 @@ def main():
 
 
     logger.info("Kinesis event simulation completed.")
-
 
 
 if __name__ == "__main__":
