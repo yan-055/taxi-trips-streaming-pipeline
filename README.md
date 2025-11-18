@@ -15,7 +15,7 @@ It’s designed so that a hiring manager can quickly understand:
 
 ## 1. Problem & Dataset
 
-San Francisco publishes detailed records of taxi trips, including pickup location, dropoff, and fare information, through the DataSF portal. The data is transmitted in real time from taxi companies to SFMTA’s Taxi API, and the dataset is updated regularly. :contentReference[oaicite:0]{index=0}  
+San Francisco publishes detailed records of taxi trips, including pickup location, dropoff, and fare information, through the DataSF portal. 
 
 The goal of this project is to **treat these trip events as a real-time stream**, and:
 
@@ -90,4 +90,26 @@ flowchart LR
     subgraph Replay
         J --> K[AWS Glue Job<br/>process-failed-trips<br/>taxi_trip_glue_replay.py]
         K --> H
-    end
+
+
+taxi-trips-streaming-pipeline/
+├─ README.md                  # You are here
+├─ docs/
+│  ├─ architecture.md         # Architecture diagram & narrative
+│  └─ images/                 # (optional) exported diagrams
+├─ infra/
+│  └─ TaxiTripResourcesAWS-template.yaml  # CloudFormation stack
+├─ src/
+│  ├─ lambdas/
+│  │  ├─ start_taxi_trips_lambda.py      # Processes start-of-trip events
+│  │  └─ end_taxi_trips_lambda.py        # Processes end-of-trip events
+│  ├─ glue/
+│  │  └─ taxi_trip_glue_replay.py        # Glue job to replay failed updates
+│  └─ tools/
+│     └─ taxi_trip_kinesis_streams.py    # Local producer -> Kinesis
+├─ data/
+│  ├─ start_taxi_trips_sample.parquet
+│  └─ end_taxi_trips_sample.parquet
+└─ .gitignore
+
+
