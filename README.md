@@ -1,7 +1,7 @@
-# 🚕 Taxi Trip Streaming Pipeline — Real-Time AWS Architecture
+# 🚕 Taxi Trip Streaming Pipeline — AWS Architecture
 
-This repository contains a **fault-tolerant, real-time taxi trip streaming pipeline** built using AWS services.  
-It processes **start-trip** and **end-trip** events using Kinesis + Lambda, stores trip state in DynamoDB, and ensures **guaranteed failure recovery** via SQS + AWS Glue.
+This project implements a **fault-tolerant, real-time taxi trip streaming pipeline** built using AWS services.  
+It processes start-trip and end-trip events using Kinesis + Lambda, stores trip state in DynamoDB, and manages error handling and recovery through SNS, SQS, and AWS Glue.
 
 ---
 
@@ -145,12 +145,6 @@ A Python job performing:
 - Batch SQS reads  
 - Idempotent DynamoDB updates  
 - Guaranteed deletion of SQS messages only after success  
-
-Unlike Lambda, Glue can:
-
-- Process thousands of events at once  
-- Retry indefinitely  
-- Handle long-running recovery workflows  
 
 ---
 
@@ -300,14 +294,3 @@ This ensures:
 - Introduce schema registry for versioned trip events  
 
 ---
-
-# 🙌 Support
-
-If you'd like:
-
-- A PNG/SVG export of the diagrams  
-- Terraform/CDK version of the infrastructure  
-- A full demo walkthrough  
-- Stress-test scripts or notebook  
-
-Just ask!
