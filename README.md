@@ -1,57 +1,51 @@
-🚕 Taxi Trip Streaming Pipeline — Real-Time AWS Architecture
+# 🚕 Taxi Trip Streaming Pipeline — Real-Time AWS Architecture
 
-This project implements a fault-tolerant, real-time taxi-trip event processing pipeline using AWS services.
-It reliably processes start-trip and end-trip events, maintains trip state in DynamoDB, and ensures guaranteed replay of failed updates using SQS + AWS Glue.
+This repository contains a **fault-tolerant, real-time taxi trip streaming pipeline** built using AWS services.  
+It processes **start-trip** and **end-trip** events using Kinesis + Lambda, stores trip state in DynamoDB, and ensures **guaranteed failure recovery** via SQS + AWS Glue.
 
-This repository includes:
+---
 
-AWS CloudFormation template (infrastructure as code)
+# 📚 Table of Contents
 
-AWS Glue replay job (Python)
+- [Overview](#overview)
+- [High-Level Architecture](#high-level-architecture)
+- [Components](#components)
+- [Sequence Diagrams](#sequence-diagrams)
+  - [Start-Trip Event Flow](#1️⃣-start-trip-event-flow)
+  - [End-Trip Event Flow](#2️⃣-end-trip-event-flow)
+  - [Glue Replay Recovery Flow](#3️⃣-glue-replay-recovery-flow)
+- [Glue Replay Job](#glue-replay-job)
+- [Data Flow Summary](#data-flow-summary)
+- [Repository Structure](#repository-structure)
+- [Future Enhancements](#future-enhancements)
 
-Architecture & sequence diagrams
+---
 
-End-to-end workflow documentation
+# ⚡ Overview
 
-📚 Table of Contents
+This project implements a **streaming taxi trip pipeline** designed for:
 
-Overview
+- Real-time ingestion  
+- Scalable event processing  
+- Fault-tolerant updates  
+- Exactly-once–like behavior  
 
-High-Level Architecture
+The pipeline uses the following AWS components:
 
-Components
+- **Kinesis Streams** – start & end event ingestion  
+- **Lambda Functions** – real-time event processors  
+- **DynamoDB** – trip state database  
+- **SNS** – invalid data notifications  
+- **SQS** – buffering of failed updates  
+- **AWS Glue** – batch recovery of failed writes  
 
-Sequence Diagrams
+Together, these components guarantee **eventual consistency** and **no lost events**.
 
-Start-Trip Event Flow
+---
 
-End-Trip Event Flow
+# 🏗️ High-Level Architecture
 
-Glue Replay Recovery Flow
-
-Glue Replay Job
-
-Data Flow Summary
-
-Repository Structure
-
-Future Enhancements
-
-⚡ Overview
-
-The system ingests streaming trip events, processes them in real time with AWS Lambda, persists trip state in DynamoDB, and recovers from write failures using an AWS Glue batch job.
-
-The pipeline guarantees:
-
-Real-time processing of trip events
-
-Fault tolerance with full replay support
-
-Exactly-once–like outcomes for DynamoDB updates
-
-Eventual consistency even under write failures
-
-🏗️ High-Level Architecture
+```mermaid
 flowchart LR
     subgraph Ingestion Layer
         A1[Start-Trip\nProducers] --> KS1[Kinesis Stream\nstart-trip-stream]
@@ -87,70 +81,86 @@ flowchart LR
     %% glue recovery flow
     SQS -->|Batch Read| Glue -->|Replay Updates| DDB
     Glue -->|Delete on Success| SQS
+```
 
-🧩 Components
-1. Amazon Kinesis Streams
+---
 
-Two independent streams:
+# 🧩 Components
 
-start-trip-stream
+### **1. Amazon Kinesis Streams**
+Two dedicated streams:
+- `start-trip-stream`
+- `end-trip-stream`
 
-end-trip-stream
+These provide high-throughput ingestion and ordered delivery.
 
-Provide scalable ingestion with ordered, real-time event delivery.
+---
 
-2. AWS Lambda Functions
+### **2. AWS Lambda Functions**
 
-start-taxi-trips
+#### **start-taxi-trips**
+- Validates start-trip events  
+- Writes initial trip record to DynamoDB  
+- Sends invalid events to SNS  
 
-Validates start-trip events
+#### **end-taxi-trips**
+- Processes end-trip events  
+- Updates DynamoDB with completion details  
+- On error → sends event to SQS (`failed-updated-trips`)
 
-Writes initial trip record to DynamoDB
+---
 
-Sends invalid data alerts to SNS
+### **3. DynamoDB — `taxi_trip_details`**
+Stores the authoritative record of every trip:
 
-end-taxi-trips
+| Attribute | Purpose |
+|----------|----------|
+| `trip_id` | Primary key |
+| `start_time`, `end_time` | Timestamps |
+| `pickup/dropoff location` | Coordinates |
+| `fare` | Trip cost |
+| `status` | STARTED / COMPLETED |
 
-Validates end-trip events
+---
 
-Writes completion data to DynamoDB
+### **4. SQS — Failed Update Buffer**
+`failed-updated-trips` queue stores events that the end-trip Lambda could not write to DynamoDB.
 
-On DynamoDB write failure → sends event to the SQS retry queue
+This ensures *no event is ever lost*.
 
-3. DynamoDB — taxi_trip_details
+---
 
-Holds the authoritative trip record:
+### **5. AWS SNS — Invalid Data Notifications**
+All malformed or inconsistent start-trip events are published to:
+```
+SNS Topic: Invalid-taxi-trips
+```
+An email subscription receives alerts for inspection.
 
-trip_id (primary key)
+---
 
-start/end timestamps
+### **6. AWS Glue Replay Job**
+A Python job performing:
 
-locations
+- Batch SQS reads  
+- Idempotent DynamoDB updates  
+- Guaranteed deletion of SQS messages only after success  
 
-fare
+Unlike Lambda, Glue can:
 
-trip status
+- Process thousands of events at once  
+- Retry indefinitely  
+- Handle long-running recovery workflows  
 
-4. SQS — failed-updated-trips
+---
 
-Buffer for events that Lambda could not write to DynamoDB.
+# 🧵 Sequence Diagrams
 
-Glue consumes this queue during recovery.
+---
 
-5. AWS Glue Replay Job
+## 1️⃣ Start-Trip Event Flow
 
-A Python job that:
-
-Reads messages in batches
-
-Idempotently replays trip updates into DynamoDB
-
-Removes messages only after success
-
-Ensures durable recovery and no lost end-trip events.
-
-🧵 Sequence Diagrams
-1️⃣ Start-Trip Event Flow
+```mermaid
 sequenceDiagram
     autonumber
 
@@ -169,8 +179,13 @@ sequenceDiagram
     else Invalid event
         Lambda ->> SNS: Publish notification
     end
+```
 
-2️⃣ End-Trip Event Flow
+---
+
+## 2️⃣ End-Trip Event Flow
+
+```mermaid
 sequenceDiagram
     autonumber
 
@@ -189,8 +204,13 @@ sequenceDiagram
     else DynamoDB update fails
         Lambda ->> SQS: SendMessage(original event)
     end
+```
 
-3️⃣ Glue Replay Recovery Flow
+---
+
+## 3️⃣ Glue Replay Recovery Flow
+
+```mermaid
 sequenceDiagram
     autonumber
 
@@ -217,32 +237,77 @@ sequenceDiagram
             end
         end
     end
+```
 
-🔁 Glue Replay Job
+---
 
-The replay job (taxi_trip_glue_replay.py) performs:
+# 🔁 Glue Replay Job
 
-Precision-safe JSON parsing (Decimals for DynamoDB)
+The glue job (`taxi_trip_glue_replay.py`) implements:
 
-Validation: ensures trip_id exists
+### ✔ Decimal-safe JSON parsing  
+DynamoDB requires numeric precision, so JSON numbers are parsed as `Decimal`.
 
-Safely constructs DynamoDB UpdateExpression
+### ✔ Validation  
+Every replayed record must include `trip_id`.
 
-Retries in batch until queue is empty
+### ✔ Dynamic UpdateExpression generation  
+The job builds DynamoDB update expressions dynamically based on fields present.
 
-Deletes messages only on success
+### ✔ Idempotent updates  
+If the same event is replayed multiple times, it simply overwrites the same trip record safely.
 
-This ensures eventual consistency and zero data loss.
+### ✔ Safe delete-on-success behavior  
+Messages are removed from SQS *only after* DynamoDB write success.
 
-🔄 Data Flow Summary
+---
+
+# 🔄 Data Flow Summary
+
+```
 Start-trip → Kinesis → Lambda → DynamoDB
-End-trip   → Kinesis → Lambda → DynamoDB (success)
-End-trip   → Kinesis → Lambda → SQS (on failure)
-SQS → Glue Replay → DynamoDB (retry)
+End-trip   → Kinesis → Lambda → DynamoDB (✓ success)
+End-trip   → Kinesis → Lambda → SQS (✗ failure)
+SQS → Glue Replay → DynamoDB (recovered)
+```
 
-📁 Repository Structure
+This ensures:
+
+- No data loss  
+- Automatic recovery  
+- Reliable end-to-end consistency  
+
+---
+
+# 📁 Repository Structure
+
+```
 .
-├── TaxiTripResourcesAWS-template.yaml     # Full AWS infrastructure stack
-├── taxi_trip_glue_replay.py               # Glue replay job (batch recovery)
-├── README.md                              # Project documentation
-└── diagrams/                              # Optional rendered PNG/SVG outputs
+├── TaxiTripResourcesAWS-template.yaml     # CloudFormation IaC stack
+├── taxi_trip_glue_replay.py               # Glue job for batch recovery
+├── README.md                              # Documentation (this file)
+└── diagrams/                              # Optional: saved PNG/SVG diagrams
+```
+
+---
+
+# 🚀 Future Enhancements
+
+- Add CI/CD pipeline (GitHub Actions, CodePipeline)  
+- Add unit tests for Lambda and Glue  
+- Add CloudWatch alarm dashboards  
+- Integrate DynamoDB Streams for real-time analytics  
+- Introduce schema registry for versioned trip events  
+
+---
+
+# 🙌 Support
+
+If you'd like:
+
+- A PNG/SVG export of the diagrams  
+- Terraform/CDK version of the infrastructure  
+- A full demo walkthrough  
+- Stress-test scripts or notebook  
+
+Just ask!
