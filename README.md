@@ -27,7 +27,7 @@ This project provides a **fault‑tolerant, real‑time streaming pipeline** for
 - **Amazon SNS** – notifications for invalid taxi trips 
 - **Amazon S3** – landing bucket for sample data & artifacts 
 - **AWS IAM** - resource access control 
-- **AWS CloudFormation** - keep the environment reproducible via infrastructure-as-code
+- **AWS CloudFormation** - keep the environment reproducible via IaC
 
 ---
 
@@ -71,9 +71,29 @@ flowchart LR
 ---
 
 # Data Source
-The project data is sampled from San Francisco’s official Taxi Trips open dataset.
+This project uses sampled records from San Francisco’s official Taxi Trips open dataset, published through the city’s open data platform. The dataset is modeled as a continuous stream of start‑trip and end‑trip events to simulate real‑time taxi operations.
 
-SF Taxi Trips open data (streamed as events)
+### Taxi Trip Event Attributes
+
+The following table summarizes the attributes captured in both **start‑trip** and **end‑trip** event records from the San Francisco Taxi Trips dataset.
+
+| **Start‑Trip Attribute**       | **Description (placeholder)**                  | **End‑Trip Attribute**       | **Description (placeholder)**                  |
+|--------------------------------|------------------------------------------------|------------------------------|------------------------------------------------|
+| `trip_id`                      | Unique identifier for the trip                 | `trip_id`                    | Unique identifier for the trip                 |
+| `start_time_local`             | Local timestamp when the trip started          | `end_time_local`             | Local timestamp when the trip ended            |
+| `vehicle_placard_number`       | Taxi vehicle placard number                    | `fare_type`                  | Type of fare applied                           |
+| `driver_id`                    | Identifier for the driver                      | `meter_fare_amount`          | Fare amount from meter                         |
+| `pickup_location_latitude`     | Latitude of pickup location                    | `promo_rate`                 | Promotional rate applied                       |
+| `pickup_location_longitude`    | Longitude of pickup location                   | `tolls`                      | Toll charges                                   |
+| `dropoff_location_latitude`    | Latitude of intended dropoff location          | `sf_exit_fee`                | San Francisco exit fee                         |
+| `dropoff_location_longitude`   | Longitude of intended dropoff location         | `other_fees`                 | Additional fees                                |
+| `hail_type`                    | Type of hail (street, app, etc.)               | `tip`                        | Tip amount                                     |
+| `upfront_pricing`              | Pricing information provided upfront           | `extra_amount`               | Extra charges (e.g., surcharges)               |
+|                                |                                                | `total_fare_amount`          | Total fare amount                              |
+|                                |                                                | `fare_time_milliseconds`     | Duration of fare in milliseconds               |
+|                                |                                                | `trip_distance_meters`       | Distance traveled in meters                    |
+|                                |                                                | `qa_flags`                   | Quality assurance flags                        |
+|                                |                                                | `paratransit`                | Indicates paratransit service                  |
 
 ---
 
@@ -84,7 +104,7 @@ Two dedicated streams:
 - `start-trip-stream`
 - `end-trip-stream`
 
-These provide high-throughput ingestion and ordered delivery.
+Consume start-trip and end-trip events independently.
 
 ### **2. AWS Lambda Functions**
 
@@ -99,7 +119,7 @@ These provide high-throughput ingestion and ordered delivery.
 - On error → sends event to SQS (`failed-updated-trips`)
 
 ### **3. DynamoDB — `taxi_trip_details`**
-Stores the authoritative record of every trip.
+Persist trip states and attributes (trip_id as PK).
 
 ### **4. SQS — Failed Update Buffer**
 `failed-updated-trips` queue stores events that the end-trip Lambda could not write to DynamoDB.
@@ -116,9 +136,7 @@ An email subscription receives alerts for inspection.
 ### **6. AWS Glue Replay Job**
 A Python job performing:
 
-- Batch SQS reads  
-- Idempotent DynamoDB updates  
-- Guaranteed deletion of SQS messages only after success  
+Batch-process SQS failures, reapply DynamoDB updates, delete SQS messages only after successful replay.
 
 ---
 
