@@ -71,7 +71,7 @@ flowchart LR
 ---
 
 # Data Source
-This project uses sampled records from San Francisco taxi trip datasets, published through the city’s open data platform. The dataset is modeled as a continuous stream of start‑trip and end‑trip events to simulate real‑time taxi operations ([taxi trip event attributes](data/taxi-trip-event-attributes.md)).
+This project uses sampled records from San Francisco taxi trip datasets, published through the city’s open data platform. The dataset is modeled as a continuous stream of start‑trip and end‑trip events to simulate real‑time taxi operations. [Here presents taxi trip event attributes](data/taxi-trip-event-attributes.md).
 
 ---
 
