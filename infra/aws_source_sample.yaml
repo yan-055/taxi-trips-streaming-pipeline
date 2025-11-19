@@ -1,0 +1,262 @@
+Resources:
+  # --- S3 Bucket Resource ---
+  S3BucketKinesisdatastreamlabs:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::S3::Bucket"
+    DeletionPolicy: "Retain"
+    Properties:
+      PublicAccessBlockConfiguration:
+        RestrictPublicBuckets: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        BlockPublicAcls: true
+      BucketName: "taxi-trip-lab-bucket-placeholder"
+      OwnershipControls:
+        Rules:
+        - ObjectOwnership: "BucketOwnerEnforced"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+        - BucketKeyEnabled: true
+          ServerSideEncryptionByDefault:
+            SSEAlgorithm: "AES256"
+      Tags:
+      - Value: "project"
+        Key: "taxiTrip"
+
+  # --- Kinesis Streams ---
+  KinesisStreamStarttripstream:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::Kinesis::Stream"
+    DeletionPolicy: "Retain"
+    Properties:
+      StreamModeDetails:
+        StreamMode: "ON_DEMAND"
+      MaxRecordSizeInKiB: 1024
+      RetentionPeriodHours: 24
+      DesiredShardLevelMetrics: []
+      Tags:
+      - Value: "startTripStream"
+        Key: "taxiTrip"
+      Name: "start-trip-stream"
+      ShardCount: 4
+
+  KinesisStreamEndtripstream:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::Kinesis::Stream"
+    DeletionPolicy: "Retain"
+    Properties:
+      StreamModeDetails:
+        StreamMode: "ON_DEMAND"
+      MaxRecordSizeInKiB: 1024
+      RetentionPeriodHours: 24
+      DesiredShardLevelMetrics: []
+      Tags:
+      - Value: "endTripStream"
+        Key: "taxiTrip"
+      Name: "end-trip-stream"
+      ShardCount: 4
+
+  # --- IAM Role ---
+  IAMRoleCustomlambdarole:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::IAM::Role"
+    DeletionPolicy: "Retain"
+    Properties:
+      Path: "/"
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/service-role/AmazonSNSRole"
+      - "arn:aws:iam::aws:policy/CloudWatchEventsXXX"
+      - "arn:aws:iam::aws:policy/AmazonSQSXXX"
+      - "arn:aws:iam::aws:policy/AmazonSNSXXX"
+      - "arn:aws:iam::aws:policy/AmazonDynamoDBXXX"
+      - "arn:aws:iam::aws:policy/AmazonS3XXX"
+      - "arn:aws:iam::aws:policy/AmazonKinesisXXX"
+      - "arn:aws:iam::aws:policy/AWSGlueConsoleXXX"
+      MaxSessionDuration: 3600
+      RoleName: "custom-lambda-role"
+      Description: "Allows Lambda functions to call AWS services on your behalf."
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Action: "sts:AssumeRole"
+          Effect: "Allow"
+          Principal:
+            Service: "lambda.amazonaws.com"
+      Tags:
+      - Value: "project"
+        Key: "taxiTrip"
+
+  # --- DynamoDB Table ---
+  DynamoDBTableTaxitripdetails:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::DynamoDB::Table"
+    DeletionPolicy: "Retain"
+    Properties:
+      SSESpecification:
+        SSEEnabled: false
+      TableName: "taxi_trip_details"
+      AttributeDefinitions:
+      - AttributeType: "S"
+        AttributeName: "trip_id"
+      ContributorInsightsSpecification:
+        Enabled: false
+      BillingMode: "PAY_PER_REQUEST"
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: false
+      WarmThroughput:
+        ReadUnitsPerSecond: 12000
+        WriteUnitsPerSecond: 4000
+      KeySchema:
+      - KeyType: "HASH"
+        AttributeName: "trip_id"
+      DeletionProtectionEnabled: false
+      TableClass: "STANDARD"
+      Tags:
+      - Value: "taxiTripDetails"
+        Key: "taxiTrip"
+      TimeToLiveSpecification:
+        Enabled: false
+
+  # --- SQS Queue ---
+  SQSQueueFailedupdatedtrips:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::SQS::Queue"
+    DeletionPolicy: "Retain"
+    Properties:
+      SqsManagedSseEnabled: true
+      ReceiveMessageWaitTimeSeconds: 0
+      DelaySeconds: 0
+      MessageRetentionPeriod: 259200
+      MaximumMessageSize: 1048576
+      VisibilityTimeout: 30
+      QueueName: "failed-updated-trips"
+      Tags:
+      - Value: "failedUpdatedTrips"
+        Key: "taxiTrip"
+
+  # --- SNS Topic ---
+  SNSTopicInvalidtaxitrips:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::SNS::Topic"
+    DeletionPolicy: "Retain"
+    Properties:
+      TracingConfig: "PassThrough"
+      DisplayName: "Notifications to streaming taxi trips"
+      FifoTopic: false
+      Subscription:
+      - Endpoint: "placeholder@example.com"
+        Protocol: "email"
+      Tags:
+      - Value: "invalidTaxiTrips"
+        Key: "taxiTrip"
+      ArchivePolicy: {}
+      TopicName: "Invalid-taxi-trips"
+
+  # --- Lambda Function (SAM) ---
+  LambdaFunctionStarttaxitrips:
+    Type: "AWS::Serverless::Function"
+    DeletionPolicy: "Retain"
+    Properties:
+      CodeUri: "src/"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.10"
+      FunctionName: "start-taxi-trips"
+      Description: ""
+      MemorySize: 128
+      Timeout: 300
+      Role:
+        Fn::GetAtt:
+        - "IAMRoleCustomlambdarole"
+        - "Arn"
+      Environment:
+        Variables:
+          DDB_TABLE_NAME: "taxi_trip_details"
+          SNS_TOPIC_ARN: "arn:XXX:Invalid-taxi-trips"
+      Tags:
+      - Value: "startTaxiTrips"
+        Key: "taxiTrip"
+
+  # --- Lambda Function (SAM) ---
+  LambdaFunctionEndtaxitrips:
+    Type: "AWS::Serverless::Function"
+    DeletionPolicy: "Retain"
+    Properties:
+      CodeUri: "src/"
+      Handler: "lambda_function.lambda_handler"
+      Runtime: "python3.10"
+      FunctionName: "end-taxi-trips"
+      Description: ""
+      MemorySize: 128
+      Timeout: 300
+      Role:
+        Fn::GetAtt:
+        - "IAMRoleCustomlambdarole"
+        - "Arn"
+      Environment:
+        Variables:
+          GLUE_JOB_NAME: "process-failed-trips"
+          DDB_TABLE_NAME: "taxi_trip_details"
+          SQS_URL: "https://sqs.us-east-1.amazonaws.com/ACCOUNT_ID_REPLACED/failed-updated-trips"
+      Tags:
+      - Value: "endTaxiTrips"
+        Key: "taxiTrip"
+
+  # --- Lambda Event Source Mapping for End Taxi Trips ---
+  LambdaEventSourceMappingOT:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::Lambda::EventSourceMapping"
+    DeletionPolicy: "Retain"
+    Properties:
+      StartingPosition: "LATEST"
+      BatchSize: 5
+      MaximumRetryAttempts: -1
+      ParallelizationFactor: 1
+      Enabled: true
+      EventSourceArn:
+        Fn::GetAtt:
+        - "KinesisStreamEndtripstream"
+        - "Arn"
+      MetricsConfig:
+        Metrics: []
+      FunctionName:
+        Ref: "LambdaFunctionEndtaxitrips"
+      TumblingWindowInSeconds: 0
+      BisectBatchOnFunctionError: false
+      DestinationConfig:
+        OnFailure:
+          Destination: "arn:XXX"
+      MaximumRecordAgeInSeconds: -1
+      Tags:
+      - Value: "triggerEndTaxiTrips"
+        Key: "taxiTrip"
+      MaximumBatchingWindowInSeconds: 0
+
+  # --- Lambda Event Source Mapping for Start Taxi Trips ---
+  LambdaEventSourceMapping:
+    UpdateReplacePolicy: "Retain"
+    Type: "AWS::Lambda::EventSourceMapping"
+    DeletionPolicy: "Retain"
+    Properties:
+      StartingPosition: "LATEST"
+      BatchSize: 5
+      MaximumRetryAttempts: -1
+      ParallelizationFactor: 1
+      Enabled: true
+      EventSourceArn:
+        Fn::GetAtt:
+        - "KinesisStreamStarttripstream"
+        - "Arn"
+      MetricsConfig:
+        Metrics: []
+      FunctionName:
+        Ref: "LambdaFunctionStarttaxitrips"
+      TumblingWindowInSeconds: 0
+      BisectBatchOnFunctionError: false
+      DestinationConfig:
+        OnFailure:
+          Destination: "arn:XXX"
+      MaximumRecordAgeInSeconds: -1
+      Tags:
+      - Value: "triggerStartTaxiTrips"
+        Key: "taxiTrip"
+      MaximumBatchingWindowInSeconds: 0
