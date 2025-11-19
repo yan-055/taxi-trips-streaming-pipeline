@@ -9,6 +9,7 @@ This project provides a **fault‑tolerant, real‑time streaming pipeline** for
 - [Tech Stack](#tech-stack)
 - [High-Level Architecture](#high-level-architecture)
 - [Components](#components)
+- [Data Source](#data-source)
 - [Data Flow Summary](#data-flow-summary)
 - [Sequence Diagrams](#sequence-diagrams)
   - [Start-Trip Event Flow](#1️⃣-start-trip-event-flow)
@@ -18,11 +19,15 @@ This project provides a **fault‑tolerant, real‑time streaming pipeline** for
 ---
 
 # Tech Stack
-- **AWS Kinesis** – event streaming  
-- **AWS Lambda** – serverless compute  
-- **Amazon DynamoDB** – state storage  
-- **Amazon SNS & SQS** – messaging and error handling  
-- **AWS Glue** – data recovery and ETL  
+- **AWS Kinesis** – real-time ingestion of taxi start/end events
+- **AWS Lambda** – serverless compute for validating and upserting trips  
+- **Amazon DynamoDB** – low-latency store for taxi trip details 
+- **Amazon SQS** – buffer for failed updates (replay queue) 
+- **AWS Glue** – batch replay of failed events from SQS 
+- **Amazon SNS** – notifications for invalid taxi trips 
+- **Amazon S3** – landing bucket for sample data & artifacts 
+- **AWS IAM** - resource access control 
+- **AWS CloudFormation** - keep the environment reproducible via infrastructure-as-code
 
 ---
 
@@ -62,6 +67,13 @@ flowchart LR
     SQS -->|Batch Read| Glue -->|Replay Updates| DDB
     Glue -->|Delete on Success| SQS
 ```
+
+---
+
+# Data Source
+The project data is sampled from San Francisco’s official Taxi Trips open dataset.
+
+SF Taxi Trips open data (streamed as events)
 
 ---
 
