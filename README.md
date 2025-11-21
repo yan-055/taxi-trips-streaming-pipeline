@@ -101,6 +101,7 @@ This ensures no event is ever lost.
 
 ### **5. Amazon SNS — Invalid Data Notifications**
 All malformed or inconsistent start-trip events are published to the SNS topic: `invalid-taxi-trips`.
+
 An email subscription receives alerts for inspection.
 
 ### **6. AWS Glue Job**
