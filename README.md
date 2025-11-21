@@ -81,12 +81,12 @@ Consume start-trip and end-trip events independently.
 
 ### **2. AWS Lambda Functions**
 
-#### **start-taxi-trips**
+#### **`start-taxi-trips`**
 - Validates start-trip events  
 - Writes initial trip record to DynamoDB  
 - Sends invalid events to SNS  
 
-#### **end-taxi-trips**
+#### **`end-taxi-trips`**
 - Processes end-trip events  
 - Updates DynamoDB with completion details  
 - On error → sends event to SQS (`failed-updated-trips`)
