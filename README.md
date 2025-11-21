@@ -92,7 +92,7 @@ Consume start-trip and end-trip events independently.
 - On error → sends event to SQS (`failed-updated-trips`)
 
 ### **3. Amazon DynamoDB  — Taxi Trip Details**
-Persist trip states and attributes (trip_id as PK).
+Persist trip states and attributes in the table `taxi_trip_details` (trip_id as PK).
 
 ### **4. Amazon SQS — Failed Update Buffer**
 The `failed-updated-trips` queue stores events that the end-trip Lambda could not write to DynamoDB.
