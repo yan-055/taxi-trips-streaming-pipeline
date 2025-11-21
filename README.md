@@ -95,21 +95,16 @@ Consume start-trip and end-trip events independently.
 Persist trip states and attributes (trip_id as PK).
 
 ### **4. Amazon SQS — Failed Update Buffer**
-`failed-updated-trips` queue stores events that the end-trip Lambda could not write to DynamoDB.
+The `failed-updated-trips` queue stores events that the end-trip Lambda could not write to DynamoDB.
 
 This ensures no event is ever lost.
 
 ### **5. Amazon SNS — Invalid Data Notifications**
-All malformed or inconsistent start-trip events are published to:
-```
-SNS Topic: invalid-taxi-trips
-```
+All malformed or inconsistent start-trip events are published to the SNS topic: `invalid-taxi-trips`.
 An email subscription receives alerts for inspection.
 
 ### **6. AWS Glue Job**
-A Python job performing:
-
-Batch-process SQS failures, reapply DynamoDB updates, delete SQS messages only after successful replay.
+A Python job performing: batch-process SQS failures, reapply DynamoDB updates, delete SQS messages only after successful replay.
 
 ---
 
